@@ -21,8 +21,8 @@ app.secret_key = 'prognosxai_clinical_secret_key_2026'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # --- AI Configuration ---
-genai.configure(api_key="AIzaSyBxWIzpdWifEdv8tkmNF2iSSFO7hOiZbvc")
-gemini_model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+gemini_model = genai.GenerativeModel('gemini-1.5-flash') 
 
 # --- Tesseract OCR Configuration ---
 # This check prevents the app from crashing on Render's Linux servers
