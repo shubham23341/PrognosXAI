@@ -22,7 +22,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # --- AI Configuration ---
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-gemini_model = genai.GenerativeModel('gemini-1.5-flash') 
+gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # --- Tesseract OCR Configuration ---
 # This check prevents the app from crashing on Render's Linux servers
