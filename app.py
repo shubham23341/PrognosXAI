@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session
 import pytesseract
+import platform
 from PIL import Image
 import os
 import pickle
@@ -24,8 +25,9 @@ genai.configure(api_key="AIzaSyBxWIzpdWifEdv8tkmNF2iSSFO7hOiZbvc")
 gemini_model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
 
 # --- Tesseract OCR Configuration ---
-# Note: Ensure this path is correct on your machine
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# This check prevents the app from crashing on Render's Linux servers
+if platform.system() == "Windows":
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 FEATURE_NAMES = [
     'Glucose', 'HbA1c', 'Insulin', 'BMI', 'Cholesterol', 'Triglycerides', 
