@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Registration | PrognosXAI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --lab-green: #34a853;
+            --lab-dark: #2d8a47;
+            --error: #ef4444;
+        }
+        body { font-family: 'Inter', sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        
+        .reg-card { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+            width: 100%; 
+            max-width: 400px; 
+            text-align: center;
+            border-top: 6px solid var(--lab-green);
+        }
+        h2 { color: var(--lab-green); margin-bottom: 20px; }
+        
+        .form-group { text-align: left; margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: 700; color: #555; margin-bottom: 5px; text-transform: uppercase; }
+        
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; transition: 0.2s; }
+        input:focus { border-color: var(--lab-green); outline: none; box-shadow: 0 0 0 3px rgba(52, 168, 83, 0.1); }
+        
+        .btn-submit { background: var(--lab-green); color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+        .btn-submit:hover { background: var(--lab-dark); }
+        .btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* --- Professional Notification Styles --- */
+        #toast {
+            visibility: hidden;
+            min-width: 300px;
+            background-color: #334155;
+            color: #fff;
+            text-align: center;
+            border-radius: 12px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1000;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        #toast.show {
+            visibility: visible;
+            animation: slideIn 0.5s, slideOut 0.5s 2.5s;
+        }
+
+        #toast.success { border-left: 5px solid var(--lab-green); }
+        #toast.error { border-left: 5px solid var(--error); }
+
+        @keyframes slideIn { from { top: 0; opacity: 0; } to { top: 30px; opacity: 1; } }
+        @keyframes slideOut { from { top: 30px; opacity: 1; } to { top: 0; opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <div id="toast"></div>
+
+    <div class="reg-card">
+        <h2>🔬 Lab Facility Registration</h2>
+        <form id="labRegForm">
+            <div class="form-group">
+                <label>Laboratory Name</label>
+                <input type="text" id="regLabName" placeholder="Metro Diagnostics" required>
+            </div>
+            <div class="form-group">
+                <label>Accreditation ID (NABL/ISO)</label>
+                <input type="text" id="regAccreditation" placeholder="ISO-9001-2024" required>
+            </div>
+            <div class="form-group">
+                <label>Admin Email</label>
+                <input type="email" id="regEmail" placeholder="admin@lab.com" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="regPassword" placeholder="••••••••" minlength="6" required>
+            </div>
+            <button type="submit" class="btn-submit" id="submitBtn">Register Facility</button>
+        </form>
+        <p style="font-size: 13px; margin-top: 15px;">Official Terminal? <a href="/login" style="color: var(--lab-green); text-decoration: none; font-weight: 600;">Login</a></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCDUQ49HV5bdYnPrfdIG_8sOnA0dbYj0YU",
+            authDomain: "prognosxai.firebaseapp.com",
+            projectId: "prognosxai",
+            storageBucket: "prognosxai.firebasestorage.app",
+            messagingSenderId: "930871131065",
+            appId: "1:930871131065:web:30e7fde84190e71ea55468"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const regForm = document.getElementById('labRegForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const toast = document.getElementById('toast');
+
+        function showNotification(message, type) {
+            toast.innerText = message;
+            toast.className = "show " + type;
+            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+        
+        regForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Registering Facility...";
+
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const labName = document.getElementById('regLabName').value;
+            const accreditation = document.getElementById('regAccreditation').value;
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                await setDoc(doc(db, "users", user.uid), {
+                    labName: labName,
+                    accreditation: accreditation,
+                    email: email,
+                    role: "lab", 
+                    createdAt: new Date().toISOString()
+                });
+
+                showNotification("✅ Laboratory Registered! Redirecting...", "success");
+
+                setTimeout(() => {
+                    window.location.href = "/login";
+                }, 2000);
+
+            } catch (error) {
+                console.error("Error:", error);
+                showNotification("Error: " + error.message, "error");
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Register Facility";
+            }
+        });
+    </script>
+</body>
+</html>

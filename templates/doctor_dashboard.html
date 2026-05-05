@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Terminal | PrognosXAI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        :root { 
+            --primary: #1a73e8; --primary-dark: #1557b0; --bg-light: #f8fafc;
+            --sidebar-dark: #0f172a; --success: #10b981; --text-main: #1e293b; --error: #ef4444;
+        }
+
+        body { font-family: 'Inter', sans-serif; margin: 0; background: var(--bg-light); display: flex; min-height: 100vh; color: var(--text-main); }
+
+        .logo-box { display: flex; align-items: center; gap: 10px; text-decoration: none; margin-bottom: 5px; }
+        .logo-icon { width: 28px; height: 28px; background: var(--primary); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 16px; }
+        .logo-text { font-size: 1.2rem; font-weight: 800; color: white; letter-spacing: -0.5px; }
+        .logo-text span { color: var(--primary); }
+
+        .sidebar { width: 280px; background: var(--sidebar-dark); color: white; padding: 30px 20px; position: fixed; height: 100vh; display: flex; flex-direction: column; z-index: 100; box-shadow: 4px 0 20px rgba(0,0,0,0.1); }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+        #logoutBtn { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.2s; text-transform: uppercase; }
+        #logoutBtn:hover { background: #ef4444; color: white; }
+
+        .nav-link { color: #94a3b8; text-decoration: none; padding: 14px 18px; border-radius: 12px; margin-bottom: 8px; transition: 0.3s; display: flex; align-items: center; font-weight: 500; font-size: 0.95rem; }
+        .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.1); color: white; }
+        .nav-link.active { border-left: 4px solid var(--primary); background: rgba(26, 115, 232, 0.1); }
+
+        .main-content { margin-left: 280px; padding: 40px 60px; width: calc(100% - 280px); }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+        .header-title h1 { font-weight: 800; margin: 0; font-size: 2.2rem; letter-spacing: -1px; }
+
+        .card { background: white; padding: 35px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.02); margin-bottom: 30px; border: 1px solid #edf2f7; }
+        .card h3 { margin-top: 0; font-weight: 700; color: var(--sidebar-dark); font-size: 1.25rem; margin-bottom: 25px; }
+
+        .patient-info-row { display: grid; gap: 20px; margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; position: relative; }
+        .form-group label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+        input, select { padding: 14px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 14px; outline: none; background: #fcfcfc; }
+        input:focus { border-color: var(--primary); background: white; }
+
+        /* Medical Warning Styling */
+        .med-warning { color: var(--error); font-size: 10px; font-weight: 700; margin-bottom: 4px; display: none; text-transform: uppercase; line-height: 1.2; }
+        input.med-invalid { border-color: var(--error) !important; background: #fff5f5 !important; color: var(--error) !important; }
+
+        .biomarker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+        .biomarker-grid input { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--primary); }
+
+        .btn-primary { background: var(--primary); color: white; padding: 16px 25px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; transition: 0.3s; width: 100%; }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-2px); }
+        
+        .ocr-zone { border: 2px dashed #cbd5e1; background: #f8fafc; padding: 25px; border-radius: 20px; margin-bottom: 25px; transition: 0.3s; }
+        .ocr-zone:hover { border-color: var(--primary); background: #f0f7ff; }
+
+        .log-terminal { background: #0f172a; color: #38bdf8; border-radius: 12px; padding: 15px; font-family: 'JetBrains Mono'; font-size: 12px; margin-top: 20px; height: 130px; overflow-y: auto; border: 1px solid #1e293b; }
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: white; padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); margin-bottom: 10px; display: flex; align-items: center; gap: 12px; font-weight: 600; min-width: 250px; border-left: 6px solid #cbd5e1; animation: slideIn 0.3s ease forwards; }
+        .toast.success { border-left-color: #22c55e; }
+        .toast.error { border-left-color: var(--error); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="/" class="logo-box">
+                <div class="logo-icon">P</div>
+                <div class="logo-text">Prognos<span>XAI</span></div>
+            </a>
+            <button id="logoutBtn">Logout</button>
+        </div>
+        <div class="nav-group">
+            <a href="/doctor/dashboard" class="nav-link active">Clinical Workspace</a>
+            <a href="/patient/database" class="nav-link">Patient Database</a>
+            <a href="/settings" class="nav-link">System Settings</a>
+            <a href="/" class="nav-link">Back to Home</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="header-flex">
+            <div class="header-title">
+                <h1>Diagnostic Terminal</h1>
+                <p>Welcome, Dr. <span id="docNameHeader">...</span> | Node: <span id="docIdBadge" class="id-badge" style="background: #f1f5f9; padding: 4px 10px; border-radius: 6px; font-family: 'JetBrains Mono'; font-weight: 700; color: var(--primary); font-size: 13px;">Loading...</span></p>
+            </div>
+            <div style="background: white; padding: 12px 24px; border-radius: 50px; border: 1px solid #f1f5f9;">
+                <span style="color: var(--success); font-weight: 700; font-size: 14px;">● AI Infrastructure Online</span>
+            </div>
+        </header>
+
+        <div class="card">
+            <h3>Patient Registration & Analysis</h3>
+            
+            <div class="ocr-zone">
+                <label style="font-size: 11px; font-weight: 800; color: var(--primary); display: block; margin-bottom: 10px;">REPORT SCANNER (AI VISION)</label>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <input type="file" id="ocrUpload" accept="image/*" style="flex-grow: 1; border: none; background: transparent; padding: 0;">
+                    <button type="button" id="scanBtn" class="btn-primary" style="padding: 12px 24px; width: auto;" onclick="performOCR()">Scan Lab Report</button>
+                </div>
+            </div>
+
+            <form id="assessmentForm">
+                <div class="patient-info-row" style="grid-template-columns: 2fr 1fr 1fr;">
+                    <div class="form-group"><label>Patient Full Name</label><input type="text" id="pName" placeholder="Enter full name..." required></div>
+                    <div class="form-group"><label>Age</label><input type="number" id="pAge" placeholder="0" required></div>
+                    <div class="form-group"><label>Gender</label><select id="pGender"><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                </div>
+
+                <div class="patient-info-row" style="grid-template-columns: 1fr 2fr;">
+                    <div class="form-group"><label>Contact Number</label><input type="tel" id="pPhone" placeholder="+91 XXXX..." required></div>
+                    <div class="form-group"><label>Residential Address</label><input type="text" id="pAddress" placeholder="Full address details..."></div>
+                </div>
+
+                <div id="biomarkerSection" style="display:none;">
+                    <div id="biomarkerInputs" class="biomarker-grid"></div>
+                    <div class="form-group" style="margin-bottom: 20px; max-width: 300px;">
+                        <label>AI Response Language</label>
+                        <select id="aiLanguage">
+                            <option value="English">English</option>
+                            <option value="Hindi">Hindi (हिन्दी)</option>
+                            <option value="Marathi">Marathi (मराठी)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary" id="submitBtn">Generate AI Diagnosis</button>
+                </div>
+
+                <button type="button" id="startBtn" class="btn-primary" onclick="showBiomarkers()">Manual Vector Entry</button>
+                <div class="log-terminal" id="systemLogs"><div>[SYSTEM] Awaiting Diagnostic Input...</div></div>
+            </form>
+        </div>
+    </main>
+
+    <div id="resultModal" style="display:none; position:fixed; inset:0; background:rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); align-items:center; justify-content:center; z-index:1000;">
+        <div style="background:white; max-width:1100px; width:95%; padding:45px; border-radius:32px; max-height: 90vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 30px;">
+                <h2 style="margin:0; font-weight: 800;">Diagnostic Synthesis</h2>
+                <button onclick="closeModal()" style="border:none; font-size:24px; cursor:pointer; background:#f1f5f9; color: #64748b; width:40px; height:40px; border-radius:50%;">&times;</button>
+            </div>
+            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 30px;">
+                <div>
+                    <div style="background: #f8fafc; padding: 25px; border-radius: 20px; text-align: center; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+                        <label style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">XGBoost Prediction</label>
+                        <h1 id="diagText" style="font-size: 2.8rem; color: var(--primary); margin: 10px 0;">...</h1>
+                    </div>
+                    <img id="shapPlot" src="" style="width: 100%; border-radius: 12px;">
+                </div>
+                <div style="background: #f0f7ff; padding: 25px; border-radius: 20px; border: 1px solid #dbeafe; max-height: 450px; overflow-y: auto;">
+                    <h4>✨ Gemini AI Clinical Overview</h4>
+                    <div id="aiExplanation" style="color: #334155;"><p>Generating neural insights...</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc, getDocs, addDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyCDUQ49HV5bdYnPrfdIG_8sOnA0dbYj0YU", authDomain: "prognosxai.firebaseapp.com", projectId: "prognosxai", storageBucket: "prognosxai.firebasestorage.app", messagingSenderId: "930871131065", appId: "1:930871131065:web:30e7fde84190e71ea55468" };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const markers = ['Glucose', 'HbA1c', 'Insulin', 'BMI', 'Cholesterol', 'Triglycerides', 'RBC', 'Hemoglobin', 'Hematocrit', 'MCV', 'MCH', 'MCHC', 'RDW', 'WBC', 'Neutrophils', 'Lymphocytes', 'Monocytes', 'Eosinophils', 'Basophils', 'Systolic_BP', 'Diastolic_BP', 'Heart_Rate', 'Troponin', 'CRP'];
+
+        const medConstraints = {
+            'Glucose': { min: 15, max: 2500, low_reason: "Glucose below 15 mg/dL indicates critical hypoglycemia and metabolic collapse.", high_reason: "Glucose above 2500 mg/dL is a life-threatening hyperglycemic emergency." },
+            'HbA1c': { min: 3, max: 25, low_reason: "HbA1c below 3% is physiologically improbable in living adults.", high_reason: "HbA1c above 25% indicates severe, chronic uncontrolled glycation." },
+            'Insulin': { min: 0.1, max: 1000, low_reason: "Value below 0.1 indicates absolute insulin deficiency.", high_reason: "Value above 1000 indicates extreme insulin toxicity or insulinoma." },
+            'BMI': { min: 8, max: 150, low_reason: "BMI below 8 indicates fatal-level malnutrition or cachexia.", high_reason: "BMI above 150 is clinically improbable for standard diagnostic models." },
+            'Cholesterol': { min: 40, max: 1000, low_reason: "Cholesterol below 40 indicates critical cellular membrane instability.", high_reason: "Cholesterol above 1000 indicates extreme hyperlipidemia risk." },
+            'Triglycerides': { min: 20, max: 5000, low_reason: "Triglycerides below 20 indicates severe lipid metabolism failure.", high_reason: "Values above 5000 pose an immediate risk of acute pancreatitis." },
+            'RBC': { min: 0.5, max: 15, low_reason: "RBC count below 0.5 is incompatible with sustained oxygen transport.", high_reason: "RBC count above 15 indicates extreme polycythemia hyperviscosity." },
+            'Hemoglobin': { min: 2.5, max: 30, low_reason: "Hemoglobin below 2.5 g/dL indicates fatal hypoxia risk.", high_reason: "Hemoglobin above 30 g/dL is physiologically impossible for humans." },
+            'Hematocrit': { min: 10, max: 80, low_reason: "Hematocrit below 10% indicates lethal-grade anemia.", high_reason: "Hematocrit above 80% indicates stroke-level blood density." },
+            'MCV': { min: 30, max: 150, low_reason: "MCV below 30 fL indicates extreme microcytosis.", high_reason: "MCV above 150 fL indicates severe megaloblastic anemia crisis." },
+            'MCH': { min: 10, max: 60, low_reason: "MCH below 10 pg indicates critical hypochromia.", high_reason: "MCH above 60 pg indicates impossible hemoglobin content per cell." },
+            'MCHC': { min: 15, max: 50, low_reason: "MCHC below 15 g/dL indicates lethal hypochromia.", high_reason: "MCHC above 50 g/dL suggests spherocytosis or tech-error." },
+            'RDW': { min: 5, max: 50, low_reason: "RDW below 5 is clinically unseen in diverse human populations.", high_reason: "RDW above 50 indicates severe anisocytosis and marrow stress." },
+            'WBC': { min: 0.1, max: 600, low_reason: "WBC below 0.1 indicates complete immune system failure.", high_reason: "WBC above 600k indicates a leukemic blast crisis alert." },
+            'Neutrophils': { min: 0, max: 100, low_reason: "Negative percentage is impossible.", high_reason: "Percentage cannot exceed 100%." },
+            'Lymphocytes': { min: 0, max: 100, low_reason: "Negative percentage is impossible.", high_reason: "Percentage cannot exceed 100%." },
+            'Monocytes': { min: 0, max: 100, low_reason: "Negative percentage is impossible.", high_reason: "Percentage cannot exceed 100%." },
+            'Eosinophils': { min: 0, max: 100, low_reason: "Negative percentage is impossible.", high_reason: "Percentage cannot exceed 100%." },
+            'Basophils': { min: 0, max: 100, low_reason: "Negative percentage is impossible.", high_reason: "Percentage cannot exceed 100%." },
+            'Systolic_BP': { min: 40, max: 320, low_reason: "Circulatory collapse risk.", high_reason: "Vascular rupture risk." },
+            'Diastolic_BP': { min: 20, max: 200, low_reason: "Poor organ perfusion.", high_reason: "Hypertensive crisis alert." },
+            'Heart_Rate': { min: 20, max: 350, low_reason: "Imminent cardiac arrest.", high_reason: "Fatal fibrillation risk." },
+            'Troponin': { min: 0, max: 500, low_reason: "Negative value is impossible.", high_reason: "Value above 500 indicates massive myocardial necrosis." },
+            'CRP': { min: 0, max: 1000, low_reason: "Negative value is impossible.", high_reason: "CRP above 1000 indicates a systemic cytokine storm or sepsis." }
+        };
+
+        const inputContainer = document.getElementById('biomarkerInputs');
+        markers.forEach(m => {
+            inputContainer.innerHTML += `
+                <div class="form-group">
+                    <span class="med-warning" id="warn_${m}">Alert</span>
+                    <label>${m}</label>
+                    <input type="number" step="0.001" class="val-input" id="val_${m}" placeholder="0.00">
+                </div>`;
+        });
+
+        const generateID = () => 'PX-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+        function addLog(msg, color = "#38bdf8") {
+            const logs = document.getElementById('systemLogs');
+            const entry = document.createElement('div');
+            entry.style.color = color;
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // Real-time Constraint Monitoring
+        document.addEventListener('input', (e) => {
+            if (e.target.classList.contains('val-input')) {
+                const marker = e.target.id.split('_')[1];
+                const val = parseFloat(e.target.value);
+                const warnEl = document.getElementById(`warn_${marker}`);
+                const config = medConstraints[marker];
+
+                if (config && !isNaN(val)) {
+                    if (val < config.min) {
+                        warnEl.innerText = config.low_reason;
+                        warnEl.style.display = 'block';
+                        e.target.classList.add('med-invalid');
+                    } else if (val > config.max) {
+                        warnEl.innerText = config.high_reason;
+                        warnEl.style.display = 'block';
+                        e.target.classList.add('med-invalid');
+                    } else {
+                        warnEl.style.display = 'none';
+                        e.target.classList.remove('med-invalid');
+                    }
+                } else {
+                    warnEl.style.display = 'none';
+                    e.target.classList.remove('med-invalid');
+                }
+            }
+        });
+
+        window.performOCR = async () => {
+            const fileInput = document.getElementById('ocrUpload');
+            const scanBtn = document.getElementById('scanBtn');
+            if (!fileInput.files[0]) return showToast("Please select a report image", "error");
+
+            addLog("OCR: Initiating AI Vision Analysis...");
+            scanBtn.innerText = "Processing...";
+            scanBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/ocr-extract', { method: 'POST', body: formData });
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                Object.entries(data).forEach(([key, value]) => {
+                    const field = document.getElementById(`val_${key}`);
+                    if (field) {
+                        field.value = value;
+                        field.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+                
+                showBiomarkers();
+                addLog("OCR: Extraction successful. Markers synchronized.");
+                showToast("Lab Report Parsed Successfully", "success");
+            } catch (err) {
+                console.error(err);
+                addLog("OCR: Protocol Failed. Check image quality.", "#ef4444");
+                showToast("Extraction Failed", "error");
+            } finally {
+                scanBtn.innerText = "Scan Lab Report";
+                scanBtn.disabled = false;
+            }
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    document.getElementById('docNameHeader').innerText = userDoc.data().fullName;
+                    const dId = user.uid.substring(0,8).toUpperCase();
+                    document.getElementById('docIdBadge').innerText = dId;
+                }
+            } else { window.location.href = "/login"; }
+        });
+
+        window.showBiomarkers = () => { 
+            document.getElementById('biomarkerSection').style.display = 'block'; 
+            document.getElementById('startBtn').style.display = 'none'; 
+        };
+
+        document.getElementById('assessmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            let hasViolation = false;
+            markers.forEach(m => {
+                const input = document.getElementById(`val_${m}`);
+                if (input.classList.contains('med-invalid')) hasViolation = true;
+            });
+
+            if (hasViolation) {
+                showToast("Cannot process. Improbable medical values detected.", "error");
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            const name = document.getElementById('pName').value.trim();
+            const phone = document.getElementById('pPhone').value.trim();
+            
+            submitBtn.innerText = "Querying Registry...";
+            submitBtn.disabled = true;
+
+            try {
+                let pID;
+                const q = query(collection(db, "diagnostic_history"), where("patientName", "==", name), where("contact", "==", phone), orderBy("timestamp", "desc"));
+                const snap = await getDocs(q);
+
+                if (!snap.empty) {
+                    pID = snap.docs[0].data().patientId;
+                    addLog(`RECOGNIZED: Re-entry for ${pID}`);
+                } else {
+                    pID = generateID();
+                    addLog(`NEW REGISTRATION: Assigned ${pID}`);
+                }
+
+                submitBtn.innerText = "Generating AI Prediction...";
+                const vals = markers.map(m => parseFloat(document.getElementById(`val_${m}`).value));
+                document.getElementById('resultModal').style.display = "flex";
+
+                const res = await fetch('/predict', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ features: vals }) });
+                const data = await res.json();
+                document.getElementById('diagText').innerText = data.diagnosis;
+                document.getElementById('shapPlot').src = "data:image/png;base64," + data.shap_image;
+
+                const aiRes = await fetch('/get-explanation', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ disease: data.diagnosis, language: document.getElementById('aiLanguage').value, shap_info: data.shap_info }) });
+                const aiData = await aiRes.json();
+                document.getElementById('aiExplanation').innerHTML = aiData.explanation;
+
+                await addDoc(collection(db, "diagnostic_history"), { 
+                    patientId: pID,
+                    patientName: name, 
+                    age: document.getElementById('pAge').value, 
+                    gender: document.getElementById('pGender').value,
+                    contact: phone,
+                    address: document.getElementById('pAddress').value,
+                    diagnosis: data.diagnosis, 
+                    doctorId: document.getElementById('docIdBadge').innerText,
+                    status: "Physician_Verified",
+                    reportFeatures: Object.fromEntries(markers.map(m => [m, document.getElementById(`val_${m}`).value])),
+                    timestamp: new Date().toISOString() 
+                });
+                
+            } catch (err) { 
+                console.error(err); 
+                addLog("ENGINE ERROR.", "#ef4444"); 
+            } finally { 
+                submitBtn.disabled = false; 
+                submitBtn.innerText = "Generate AI Diagnosis"; 
+            }
+        });
+
+        window.closeModal = () => document.getElementById('resultModal').style.display = "none";
+        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth).then(() => window.location.href = "/logout"));
+    </script>
+</body>
+</html>

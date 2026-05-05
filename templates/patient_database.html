@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patients records | PrognosXAI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        :root { 
+            --primary: #1a73e8; --sidebar-dark: #0f172a; --bg-light: #f8fafc;
+            --text-main: #1e293b; --pending-gold: #f59e0b; --danger: #ef4444; --report-blue: #3b82f6;
+        }
+        body { font-family: 'Inter', sans-serif; margin: 0; background: var(--bg-light); display: flex; min-height: 100vh; color: var(--text-main); }
+        
+        .logo-box { display: flex; align-items: center; gap: 10px; text-decoration: none; margin-bottom: 40px; }
+        .logo-icon { width: 32px; height: 32px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 18px; box-shadow: 0 4px 10px rgba(26, 115, 232, 0.3); }
+        .logo-text { font-size: 1.4rem; font-weight: 800; color: #60a5fa; letter-spacing: -0.5px; }
+        .logo-text span { color: white; }
+
+        .sidebar { width: 280px; background: var(--sidebar-dark); color: white; padding: 30px 20px; position: fixed; height: 100vh; z-index: 100; box-shadow: 4px 0 20px rgba(0,0,0,0.1); }
+        .nav-link { color: #94a3b8; text-decoration: none; padding: 14px 18px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; font-weight: 500; transition: 0.3s; }
+        .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.1); color: white; }
+        .nav-link.active { background: var(--primary); box-shadow: 0 4px 12px rgba(26, 115, 232, 0.2); }
+
+        .main-content { margin-left: 280px; padding: 40px 60px; width: calc(100% - 280px); }
+        
+        .header-flex { display: flex; justify-content: space-between; align-items: flex-end; }
+        .header-title h1 { font-weight: 800; margin: 0; font-size: 2.2rem; letter-spacing: -1px; }
+        
+        .header-actions { display: flex; gap: 15px; align-items: center; }
+        .search-container { position: relative; }
+        .search-container input { padding: 10px 15px 10px 40px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 14px; width: 250px; outline: none; transition: 0.3s; }
+        .search-container input:focus { border-color: var(--primary); width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .search-container::before { content: '🔍'; position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 14px; opacity: 0.5; }
+
+        .card { background: white; padding: 30px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.02); margin-top: 30px; border: 1px solid #edf2f7; }
+        
+        table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        th { text-align: left; color: #94a3b8; font-size: 11px; text-transform: uppercase; padding: 15px 20px; border-bottom: 1px solid #f1f5f9; font-weight: 700; }
+        td { padding: 20px; border-bottom: 1px solid #f8fafc; font-size: 14px; vertical-align: middle; }
+        
+        .btn-report { background: var(--report-blue); color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 11px; margin-right: 5px; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-report:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        
+        .btn-delete { background: #fee2e2; color: var(--danger); border: 1px solid #fecaca; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 11px; transition: 0.2s; }
+        .btn-delete:hover { background: var(--danger); color: white; }
+        
+        .btn-graph { background: white; color: var(--primary); border: 2px solid var(--primary); padding: 10px 20px; border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 13px; transition: 0.3s; display: flex; align-items: center; gap: 8px; }
+
+        .status-badge { padding: 4px 10px; border-radius: 50px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+        .pending { background: #fff7ed; color: var(--pending-gold); border: 1px solid #fed7aa; }
+        .verified { background: #ecfdf5; color: #10b981; border: 1px solid #bbf7d0; }
+
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; width: 90%; max-width: 800px; padding: 40px; border-radius: 30px; position: relative; }
+        .close-btn { position: absolute; top: 25px; right: 25px; font-size: 28px; cursor: pointer; color: #94a3b8; border: none; background: none; }
+
+        #confirmModal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px); z-index: 2000; align-items: center; justify-content: center; }
+        .confirm-card { background: white; padding: 35px; border-radius: 24px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.2); }
+        
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        .toast { background: white; padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 10px; display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; min-width: 250px; border-left: 6px solid #cbd5e1; }
+        .toast.success { border-left-color: #22c55e; color: #166534; }
+        .toast.error { border-left-color: #ef4444; color: #991b1b; }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <div id="confirmModal">
+        <div class="confirm-card">
+            <h3>Confirm Purge</h3>
+            <p id="confirmMessage">Are you sure you want to delete this patient record permanently?</p>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button style="padding: 12px 25px; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; background: #f1f5f9; color: #64748b;" onclick="closeConfirm()">Cancel</button>
+                <button style="padding: 12px 25px; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; background: var(--danger); color: white;" id="confirmDeleteBtn">Delete Record</button>
+            </div>
+        </div>
+    </div>
+
+    <aside class="sidebar">
+        <a href="/" class="logo-box">
+            <div class="logo-icon">P</div>
+            <div class="logo-text">Prognos<span>XAI</span></div>
+        </a>
+        <div class="nav-group">
+            <a href="/doctor/dashboard" class="nav-link">Clinical Workspace</a>
+            <a href="/patient/database" class="nav-link active">Patient Database</a>
+            <a href="/settings" class="nav-link">System Settings</a>
+            <a href="/" class="nav-link">Back to Home</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="header-flex">
+            <div class="header-title">
+                <h1>Patient Registry</h1>
+                <p>Secure Node Access | Physician ID: <span id="idDisplay" style="color:var(--primary); font-weight:700;">Loading...</span></p>
+            </div>
+            <div class="header-actions">
+                <div class="search-container">
+                    <input type="text" id="patientSearch" placeholder="Search by name or ID..." onkeyup="filterPatients()">
+                </div>
+                <button class="btn-graph" onclick="showWeeklyStats()">
+                    📊 Disease Volume Graph
+                </button>
+            </div>
+        </header>
+        
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Patient Identity</th>
+                        <th>Patient ID</th>
+                        <th>Age</th>
+                        <th>Predicted Condition</th>
+                        <th>Diagnosis Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="patientTableBody">
+                    <tr><td colspan="6" style="text-align:center; padding:50px;">Establishing secure stream...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <div id="graphModal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeGraph()">&times;</button>
+            <h2 style="margin: 0 0 10px 0; font-weight: 800;">Weekly Clinical Volume</h2>
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 30px;">Condition distribution (Last 7 Days)</p>
+            <div style="height: 400px; width: 100%;">
+                <canvas id="volumeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, deleteDoc, getDocs, Timestamp, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCDUQ49HV5bdYnPrfdIG_8sOnA0dbYj0YU",
+        authDomain: "prognosxai.firebaseapp.com",
+        projectId: "prognosxai",
+        storageBucket: "prognosxai.firebasestorage.app",
+        messagingSenderId: "930871131065",
+        appId: "1:930871131065:web:30e7fde84190e71ea55468"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    let currentDocId = null;
+    let deleteTargetId = null;
+    let volumeChartInstance = null;
+
+    window.closeConfirm = () => { 
+        document.getElementById('confirmModal').style.display = 'none'; 
+        deleteTargetId = null; 
+    };
+    
+    window.closeGraph = () => {
+        document.getElementById('graphModal').style.display = 'none';
+    };
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> <span>${message}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3500);
+    }
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            currentDocId = user.uid.substring(0,8).toUpperCase();
+            document.getElementById('idDisplay').innerText = currentDocId;
+            loadPatientData(currentDocId);
+        } else { window.location.href = "/login"; }
+    });
+
+    function loadPatientData(docId) {
+        const q = query(collection(db, "diagnostic_history"), where("doctorId", "==", docId), orderBy("timestamp", "asc"));
+        
+        onSnapshot(q, (snapshot) => {
+            const tbody = document.getElementById('patientTableBody');
+            tbody.innerHTML = "";
+            if (snapshot.empty) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:50px; color:#94a3b8;">No records found.</td></tr>`;
+                return;
+            }
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                const diag = data.diagnosis || "Pending";
+                const dateStr = data.timestamp ? new Date(data.timestamp).toLocaleDateString() : 'N/A';
+                const pID = data.patientId || "N/A";
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${data.patientName || "Unknown"}</strong></td>
+                    <td style="font-family:'JetBrains Mono'; font-weight:700; color:var(--primary);">${pID}</td>
+                    <td>${data.age || '--'} yrs</td>
+                    <td><span class="status-badge ${diag.includes("Pending") ? 'pending' : 'verified'}">${diag}</span></td>
+                    <td style="color:#64748b; font-family:'JetBrains Mono'; font-size:12px;">${dateStr}</td>
+                    <td>
+                        <button class="btn-report">📄 Report</button>
+                        <button class="btn-delete">Delete</button>
+                    </td>`;
+                
+                tbody.appendChild(tr);
+
+                // Manual binding to fix button logic inside Module Scope
+                const btns = tr.getElementsByTagName('button');
+                btns[0].onclick = () => window.downloadReport(docSnap.id);
+                btns[1].onclick = () => window.deletePatientRecord(docSnap.id, data.patientName);
+            });
+            window.filterPatients();
+        });
+    }
+
+    window.downloadReport = async (reportId) => {
+        try {
+            const docRef = doc(db, "diagnostic_history", reportId);
+            const docSnap = await getDoc(docRef);
+            
+            if (!docSnap.exists()) {
+                showToast("Record not found", "error");
+                return;
+            }
+
+            const data = docSnap.data();
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+
+            pdf.setFillColor(15, 23, 42);
+            pdf.rect(0, 0, 210, 40, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(22);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("PROGNOSXAI CLINICAL REPORT", 15, 25);
+            
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(10);
+            pdf.setFont("helvetica", "normal");
+            pdf.text(`Patient Identity: ${data.patientName || 'Unknown'}`, 15, 50);
+            pdf.text(`Patient ID: ${data.patientId || 'N/A'}`, 15, 56);
+            pdf.text(`Age: ${data.age || 'N/A'} yrs`, 15, 62);
+            pdf.text(`Gender: ${data.gender || 'N/A'}`, 15, 68);
+            
+            pdf.text(`Date: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}`, 130, 50);
+            pdf.text(`Physician Node: ${data.doctorId}`, 130, 56);
+            pdf.text(`Address: ${data.address || 'N/A'}`, 130, 62);
+
+            pdf.setDrawColor(26, 115, 232);
+            pdf.setLineWidth(0.5);
+            pdf.rect(15, 75, 180, 20);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("PREDICTED CONDITION:", 20, 84);
+            pdf.setTextColor(26, 115, 232);
+            pdf.setFontSize(14);
+            pdf.text(data.diagnosis.toUpperCase(), 75, 84);
+
+            if (data.reportFeatures) {
+                const tableRows = Object.entries(data.reportFeatures).map(([marker, val]) => [marker, val]);
+                pdf.autoTable({
+                    startY: 105,
+                    head: [['Clinical Biomarker', 'Value']],
+                    body: tableRows,
+                    theme: 'striped',
+                    headStyles: { fillColor: [26, 115, 232], textColor: 255 },
+                    styles: { fontSize: 9, cellPadding: 3 }
+                });
+            }
+
+            pdf.save(`PrognosXAI_Report_${data.patientName}.pdf`);
+            showToast("Report Downloaded", "success");
+
+        } catch (err) {
+            console.error(err);
+            showToast("Error generating PDF", "error");
+        }
+    };
+
+    window.filterPatients = () => {
+        const input = document.getElementById("patientSearch").value.toUpperCase();
+        const rows = document.getElementById("patientTableBody").getElementsByTagName("tr");
+        for (let i = 0; i < rows.length; i++) {
+            const nameCell = rows[i].getElementsByTagName("td")[0];
+            const idCell = rows[i].getElementsByTagName("td")[1];
+            if (nameCell && idCell) {
+                const nameText = nameCell.textContent || nameCell.innerText;
+                const idText = idCell.textContent || idCell.innerText;
+                if (nameText.toUpperCase().indexOf(input) > -1 || idText.toUpperCase().indexOf(input) > -1) {
+                    rows[i].style.display = "";
+                } else {
+                    rows[i].style.display = "none";
+                }
+            }
+        }
+    };
+
+    window.showWeeklyStats = async () => {
+        document.getElementById('graphModal').style.display = 'flex';
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        try {
+            const q = query(collection(db, "diagnostic_history"), where("doctorId", "==", currentDocId));
+            const snap = await getDocs(q);
+            const counts = {};
+            let hasData = false;
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                let date = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp);
+                if (date >= sevenDaysAgo && data.diagnosis && !data.diagnosis.includes("Pending")) {
+                    counts[data.diagnosis] = (counts[data.diagnosis] || 0) + 1;
+                    hasData = true;
+                }
+            });
+            const ctx = document.getElementById('volumeChart').getContext('2d');
+            if (volumeChartInstance) volumeChartInstance.destroy();
+            volumeChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: hasData ? Object.keys(counts) : ["No Volume Detected"],
+                    datasets: [{
+                        label: 'Patient Count',
+                        data: hasData ? Object.values(counts) : [0],
+                        backgroundColor: '#1a73e8',
+                        borderRadius: 8
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        } catch (e) { console.error(e); }
+    };
+
+    window.deletePatientRecord = (docId, name) => {
+        deleteTargetId = docId;
+        document.getElementById('confirmMessage').innerText = `Permanently delete ${name}'s medical record?`;
+        document.getElementById('confirmModal').style.display = 'flex';
+    };
+
+    document.getElementById('confirmDeleteBtn').onclick = async () => {
+        if (!deleteTargetId) return;
+        const btn = document.getElementById('confirmDeleteBtn');
+        btn.innerText = "Deleting...";
+        btn.disabled = true;
+
+        try {
+            const docRef = doc(db, "diagnostic_history", deleteTargetId);
+            await deleteDoc(docRef);
+            showToast("Record delete from database", "success");
+            window.closeConfirm();
+        } catch (err) {
+            console.error("fail:", err);
+            showToast("failed.", "error");
+        } finally {
+            btn.innerText = "Delete Record";
+            btn.disabled = false;
+        }
+    };
+    </script>
+</body>
+</html>
